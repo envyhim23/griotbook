@@ -1,9 +1,15 @@
-Convertisseur PDF en Audio avec Edge-TTS
-# 📚 PDF to Audio Reader (Edge-TTS)
+# 📚 GriotBook : Lecteur d'Ebook Haute Qualité
 
-Une application web simple construite avec **Gradio** qui convertit des fichiers PDF en livres audio haute qualité grâce aux voix neuronales de **Microsoft Edge-TTS**.
+Une application web interactive conçue avec **Gradio** qui transforme vos fichiers PDF en livres audio fluides et naturels, utilisant la technologie neuronale de **Microsoft Edge-TTS**.
 
-## 🚀 Installation
-1. Clonez le dépôt : `git clone https://github.com/ton-pseudo/mon-lecteur-ebook.git`
-2. Installez les dépendances : `pip install -r requirements.txt`
-3. Lancez l'app : `python app.py`# griotbook
+## ✨ Caractéristiques
+- **Voix Naturelles** : Utilise les voix de Microsoft Edge pour un rendu humain (fini les voix robotiques).
+- **Interface Intuitive** : Une application web simple pour glisser-déposer vos PDF.
+- **Optimisé pour les PDF longs** : Gestion des timeouts et nettoyage du texte pour une lecture sans interruption.
+
+## 🚀 Installation et Utilisation
+
+### 1. Cloner le projet
+```bash
+git clone [https://github.com/envyhim23/griotbook.git](https://github.com/envyhim23/griotbook.git)
+cd griotbook
