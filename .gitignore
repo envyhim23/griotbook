@@ -1,0 +1,32 @@
+# Environnement virtuel Python
+venv/
+.venv/
+env/
+ENV/
+
+# Fichiers audio générés
+*.mp3
+*.wav
+*.aac
+*.m4a
+
+# Python cache et compilation
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# Configurations d'IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# OS Temp Files
+.DS_Store
+Thumbs.db
