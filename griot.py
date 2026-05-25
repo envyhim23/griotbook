@@ -2,11 +2,15 @@ import asyncio
 import os
 import glob
 import gradio as gr
+
+# Gestion de l'import résilient de PdfReader
 try:
     from pypdf import PdfReader
 except ImportError:
     from PyPDF2 import PdfReader
+
 import edge_tts
+from processor import TextProcessor
 
 # Voix Edge-TTS haute qualité proposées par défaut
 VOICES = {
@@ -125,14 +129,15 @@ textarea:focus, input:focus {
 
 def cleanup_temp_files():
     """Supprime les fichiers audio temporaires créés lors des lectures précédentes."""
-    for f in glob.glob("temp_audio_*.mp3"):
-        try:
-            os.remove(f)
-        except Exception:
-            pass
+    for pattern in ("temp_audio_*.mp3", "temp_chunk_gui_*.mp3"):
+        for f in glob.glob(pattern):
+            try:
+                os.remove(f)
+            except Exception:
+                pass
 
 def load_pdf(file):
-    """Charge le PDF, extrait les textes de toutes les pages et retourne les infos initiales."""
+    """Charge le PDF, extrait et nettoie les textes de toutes les pages."""
     if file is None:
         return "", gr.update(visible=False), gr.update(value=1, maximum=1), "Aucun fichier chargé", []
     
@@ -140,13 +145,17 @@ def load_pdf(file):
         reader = PdfReader(file.name)
         total_pages = len(reader.pages)
         
-        # Extraction et nettoyage du texte de chaque page
+        # Extraction et nettoyage intelligent par page
         page_texts = []
         for page in reader.pages:
-            text = page.extract_text() or ""
-            clean_lines = [line.strip() for line in text.split("\n")]
-            clean_text = "\n".join([l for l in clean_lines if l])
-            page_texts.append(clean_text)
+            raw_text = page.extract_text() or ""
+            # On applique la reconstruction et le nettoyage intelligent
+            paragraphs = TextProcessor.reconstruct_paragraphs(raw_text)
+            cleaned_paragraphs = [TextProcessor.clean_special_characters(p) for p in paragraphs if p.strip()]
+            page_text = "\n\n".join(cleaned_paragraphs)
+            if not page_text.strip():
+                page_text = "[Page vide]"
+            page_texts.append(page_text)
             
         first_page_text = page_texts[0] if page_texts else "[Page vide]"
         
@@ -211,6 +220,71 @@ async def generate_audio(text, voice_key, speed, page_num):
     except Exception as e:
         return None, f"Erreur Edge-TTS : {str(e)}"
 
+async def generate_full_audio(page_texts, voice_key, speed, progress=gr.Progress()):
+    """Génère le livre audio complet en fusionnant tous les segments nettoyés."""
+    if not page_texts:
+        return None, "Erreur : Aucun PDF chargé."
+        
+    voice = VOICES.get(voice_key, "fr-FR-DeniseNeural")
+    
+    # Calcul du taux de vitesse
+    speed_pct = int((speed - 1.0) * 100)
+    rate_str = f"{speed_pct:+}%" if speed_pct != 0 else "+0%"
+    
+    progress(0, desc="Reconstruction et segmentation du livre...")
+    full_text = "\n\n".join(page_texts)
+    
+    # Segmentation en blocs intelligents
+    chunks = TextProcessor.process_and_segment(full_text, chunk_size=2500)
+    total_chunks = len(chunks)
+    
+    if total_chunks == 0:
+        return None, "Erreur : Le texte du livre est vide après nettoyage."
+        
+    cleanup_temp_files()
+    
+    temp_files = []
+    output_path = "audio_complet.mp3"
+    
+    # Génération segment par segment
+    for i, chunk in enumerate(chunks, 1):
+        progress(i / (total_chunks + 1), desc=f"Synthèse vocale (Segment {i}/{total_chunks})...")
+        temp_name = f"temp_chunk_gui_{i}_{int(asyncio.get_event_loop().time())}.mp3"
+        temp_files.append(temp_name)
+        
+        try:
+            communicate = edge_tts.Communicate(chunk, voice, rate=rate_str)
+            await communicate.save(temp_name)
+        except Exception as e:
+            # Nettoyage des temporaires en cas d'erreur
+            for f in temp_files:
+                if os.path.exists(f):
+                    try: os.remove(f)
+                    except: pass
+            return None, f"Erreur lors du segment {i} : {str(e)}"
+            
+    # Fusion finale
+    progress(0.99, desc="Fusion binaire des segments audio...")
+    try:
+        with open(output_path, "wb") as outfile:
+            for temp_file in temp_files:
+                if os.path.exists(temp_file):
+                    with open(temp_file, "rb") as infile:
+                        outfile.write(infile.read())
+                    try:
+                        os.remove(temp_file)  # Nettoyage immédiat
+                    except Exception:
+                        pass
+                        
+        return output_path, f"Livre audio complet généré ! ({total_chunks} segments fusionnés)"
+        
+    except Exception as e:
+        for f in temp_files:
+            if os.path.exists(f):
+                try: os.remove(f)
+                except: pass
+        return None, f"Erreur lors de la fusion : {str(e)}"
+
 # Construction de l'interface Gradio
 with gr.Blocks(title="GriotBook - Lecteur PDF Premium") as demo:
     # En-tête
@@ -218,7 +292,7 @@ with gr.Blocks(title="GriotBook - Lecteur PDF Premium") as demo:
         """
         <div class="title-container">
             <h1>📖 GriotBook</h1>
-            <p>Convertissez vos livres PDF en audio page par page de façon fluide et performante</p>
+            <p>Convertissez vos livres PDF en audio page par page ou complet, sans bruits de mise en page</p>
         </div>
         """
     )
@@ -237,15 +311,15 @@ with gr.Blocks(title="GriotBook - Lecteur PDF Premium") as demo:
     with gr.Row(visible=False) as controls_panel:
         # Colonne de Gauche : Liseur de texte
         with gr.Column(scale=3, elem_classes=["glass-panel"]):
-            gr.Markdown("### 📝 Texte Extrait (Modifiable)")
+            gr.Markdown("### 📝 Texte Nettoyé de la Page (Modifiable)")
             page_text_area = gr.TextArea(
                 label="", 
-                placeholder="Le texte de la page apparaîtra ici...",
-                lines=18,
+                placeholder="Le texte nettoyé apparaîtra ici...",
+                lines=20,
                 interactive=True
             )
             
-        # Colonne de Droite : Options de Voix et Audio
+        # Colonne de Droite : Options de Voix, Audio & Global
         with gr.Column(scale=2, elem_classes=["glass-panel"]):
             gr.Markdown("### ⚙️ Paramètres de Lecture")
             
@@ -272,11 +346,18 @@ with gr.Blocks(title="GriotBook - Lecteur PDF Premium") as demo:
                 next_btn = gr.Button("Suivant ▶", elem_classes=["btn-secondary"])
                 
             gr.Markdown("---")
-            gr.Markdown("### 🔊 Lecteur")
+            gr.Markdown("### 🔊 Page Unique")
             
             generate_btn = gr.Button("Générer l'audio de cette page", elem_classes=["btn-primary"])
-            audio_output = gr.Audio(label="Livre Audio", type="filepath", elem_classes=["audio-player"])
-            status_output = gr.Textbox(label="Statut de l'audio", interactive=False)
+            audio_output = gr.Audio(label="Livre Audio Page", type="filepath", elem_classes=["audio-player"])
+            status_output = gr.Textbox(label="Statut de l'audio de la page", interactive=False)
+            
+            gr.Markdown("---")
+            gr.Markdown("### 📦 Livre Audio Complet")
+            
+            generate_full_btn = gr.Button("🚀 Générer le livre entier (audio_complet.mp3)", elem_classes=["btn-primary"])
+            audio_full_output = gr.Audio(label="Livre Audio Complet", type="filepath", elem_classes=["audio-player"])
+            status_full_output = gr.Textbox(label="Statut du livre complet", interactive=False)
 
     # Câblage des événements
     
@@ -308,11 +389,18 @@ with gr.Blocks(title="GriotBook - Lecteur PDF Premium") as demo:
         outputs=[page_text_area, current_page_state]
     )
     
-    # 5. Génération Audio
+    # 5. Génération Audio de la page
     generate_btn.click(
         fn=generate_audio, 
         inputs=[page_text_area, voice_select, speed_slider, current_page_state], 
         outputs=[audio_output, status_output]
+    )
+    
+    # 6. Génération Audio du livre complet
+    generate_full_btn.click(
+        fn=generate_full_audio,
+        inputs=[page_texts_state, voice_select, speed_slider],
+        outputs=[audio_full_output, status_full_output]
     )
 
 if __name__ == "__main__":
