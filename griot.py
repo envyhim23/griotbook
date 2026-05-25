@@ -212,7 +212,7 @@ async def generate_audio(text, voice_key, speed, page_num):
         return None, f"Erreur Edge-TTS : {str(e)}"
 
 # Construction de l'interface Gradio
-with gr.Blocks() as demo:
+with gr.Blocks(title="GriotBook - Lecteur PDF Premium") as demo:
     # En-tête
     gr.HTML(
         """
@@ -316,4 +316,4 @@ with gr.Blocks() as demo:
     )
 
 if __name__ == "__main__":
-    demo.launch(css=CSS, title="GriotBook - Lecteur PDF Premium")
+    demo.launch(css=CSS)
