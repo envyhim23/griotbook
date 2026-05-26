@@ -404,4 +404,4 @@ with gr.Blocks(title="GriotBook - Lecteur PDF Premium") as demo:
     )
 
 if __name__ == "__main__":
-    demo.launch(css=CSS)
+    demo.launch(css=CSS,share=True)

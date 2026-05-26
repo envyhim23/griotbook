@@ -11,5 +11,31 @@ Une application web interactive conçue avec **Gradio** qui transforme vos fichi
 
 ### 1. Cloner le projet
 ```bash
-git clone [https://github.com/envyhim23/griotbook.git](https://github.com/envyhim23/griotbook.git)
+git clone https://github.com/envyhim23/griotbook.git
 cd griotbook
+```
+
+### 2. Environnement virtuel
+```bash
+python -m venv .venv
+.venv\Scripts\activate    # Windows
+pip install -r requirements.txt
+```
+
+### 3. Lancer l'interface Gradio
+```bash
+python griot.py
+```
+
+Ouvrez l'URL affichée dans le terminal (souvent `http://127.0.0.1:7860`).
+
+### 4. Ligne de commande (livre audio complet)
+```bash
+python convert_book.py mon_livre.pdf sortie.mp3 --voice fr-FR-DeniseNeural --speed 1.0
+```
+
+## 📁 Version web audio (sans Gradio)
+
+La nouvelle interface **audio uniquement** (FastAPI, sans timeout) est dans le dossier séparé :
+
+**`../griotbook-audio/`** — voir son `README.md`.
