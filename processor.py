@@ -44,7 +44,7 @@ class TextProcessor:
         # Liste des caractères à supprimer :
         # #, *, (, ), &, %, @, ?, ", ., >, <, /, }, {, +, _, -, \, |, ^, $, !, ~
         # Remplacement de ces caractères par un espace pour éviter de coller les mots adjacents
-        chars_to_remove = r'[#\*(\)&%@\?"\.<>/\}\{\+_\-\\\|\^\$!~]'
+        chars_to_remove = r'[#\*(\)&%~`@\?"\.<>/\}\{\+_\-\\\|\^\$!~]'
         cleaned = re.sub(chars_to_remove, ' ', text)
         # Supprimer les espaces multiples
         cleaned = re.sub(r'\s+', ' ', cleaned)
