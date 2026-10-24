@@ -128,4 +128,4 @@ with gr.Blocks(title="GriotBook") as demo:
     btn_full.click(gen_full, [state_pages, voice, speed], [aud_full, stat_full])
 
 if __name__ == "__main__":
-    demo.launch(css=CSS)
+    demo.launch(css=CSS,share=True)
